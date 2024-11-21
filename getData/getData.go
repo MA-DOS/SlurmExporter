@@ -27,12 +27,13 @@ type SlurmJob struct {
 	Time              string
 	Node              string
 	EnergyConsumption int
+	ProcessIDs        []int
 }
 
 // var jobs []SlurmJob
 
 // This function returns a new Job struct
-func NewSlurmJob(jobID int, partition, name, user, time string /*node string,*/, joules int) SlurmJob {
+func NewSlurmJob(jobID int, partition, name, user, time string /*node string,*/, joules int, processIDs []int) SlurmJob {
 	return SlurmJob{
 		JobID:     jobID,
 		Partition: partition,
@@ -41,18 +42,17 @@ func NewSlurmJob(jobID int, partition, name, user, time string /*node string,*/,
 		Time:      time,
 		//Node:              node,
 		EnergyConsumption: joules,
+		ProcessIDs:        processIDs,
 	}
 }
 
 func QueryJobs() string {
-	// TODO: Need to make sure queried Jobs are permanently written to file and not updated
-
 	output, err := exec.Command("squeue").Output()
 	if err != nil {
 		logrus.Error("Error executing squeue command: ", err)
 	}
 	if err == nil {
-		logrus.Info("Empty result from squeue command: ", string(output))
+		logrus.Info("Empty result from squeue command!")
 	}
 	logrus.Info("Output from squeue command: ", string(output))
 	return string(output)
@@ -66,10 +66,23 @@ func QueryStats(job int) string {
 		logrus.Error("Error executing sstat command: ", err)
 	}
 	if err == nil {
-		logrus.Info("Empty result from sstat command: ", string(output))
+		logrus.Info("Empty result from sstat command!")
 	}
 	logrus.Info("Output from sstat command: ", string(output))
 	return string(output)
+}
+
+func QueryJobProcesses(job int) string {
+	JobIDStr := strconv.Itoa(job)
+	cmd := exec.Command("scontrol", "listpids", JobIDStr)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logrus.Error("Error executing scontrol listpids command: ", err)
+		logrus.Error("Output from scontrol listpids command: ", string(out))
+		return ""
+	}
+	logrus.Info("Output from scontrol listpids command: ", string(out))
+	return string(out)
 }
 
 func ParseJobOutput(output string) []SlurmJob {
@@ -91,6 +104,7 @@ func ParseJobOutput(output string) []SlurmJob {
 			jobID, _ := strconv.Atoi(match[1])
 			// Query stats for the job
 			QueryStats(jobID)
+			QueryJobProcesses(jobID)
 			if !isJobPresent(jobs, jobID) {
 				job := SlurmJob{JobID: jobID, Partition: match[2], Name: match[3], User: match[4], Time: match[5]} //Node: match[6]}
 				jobs = append(jobs, job)
@@ -123,13 +137,14 @@ func parseStats(output string) (consumedEnergy int) {
 	return consumedEnergy
 }
 
+func parseProcesses(output string) []int { return nil }
+
 func WriteToLog(jobs []SlurmJob) {
 	file, err := os.Create(logPath)
 	if err != nil {
-		logrus.Error("Error creating jobs.log file: ", err)
+		logrus.Error("Error creating log file: ", err)
 	}
 
-	// TODO: Create Header for the log file or even write to a csv file
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
@@ -138,7 +153,6 @@ func WriteToLog(jobs []SlurmJob) {
 	header := []string{"JobID", "Partition", "Name", "User" /*"Node",*/, "Energy Consumption"}
 	if err := writer.Write(header); err != nil {
 		logrus.Error("Error writing header to jobs.log file: ", err)
-		return
 	}
 
 	for _, job := range jobs {
@@ -152,7 +166,6 @@ func WriteToLog(jobs []SlurmJob) {
 		}
 		if err := writer.Write(record); err != nil {
 			logrus.Error("Error writing record to jobs.log file: ", err)
-			return
 		}
 	}
 }
