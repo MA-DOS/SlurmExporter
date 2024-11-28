@@ -7,7 +7,23 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+/*
+ * Implement the Prometheus Collector interface and feed the
+ * Slurm scheduler metrics into it.
+ * https://godoc.org/github.com/prometheus/client_golang/prometheus#Collector
+ */
+
+func NewSlurmJobCollector() *SlurmJobCollector {
+	return &SlurmJobCollector{}
+}
+
+type SlurmJobCollector struct{}
+
+// Send all metric descriptions
+func (c *SlurmJobcollector) Describe(ch chan<- *prometheus.Desc) {}
+
 // Defining metrics for prometheus
+/*
 var (
 	jobID = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -37,3 +53,4 @@ func JobExporter(jobs []getData.SlurmJob) {
 		energyConsumption.WithLabelValues(strconv.Itoa(job.JobID)).Set(float64(job.EnergyConsumption))
 	}
 }
+*/

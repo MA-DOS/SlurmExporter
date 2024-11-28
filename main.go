@@ -2,19 +2,28 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
-
 	"github.com/MA-DOS/SlurmExporter/getData"
-	"github.com/MA-DOS/SlurmExporter/log2prometheus"
 )
 
 func main() {
-	fmt.Println("Hello, Slurm Exporter!")
+	fmt.Println("Hello, Slurm Monitor!")
+	slurmJobs := []getData.SlurmJob{}
 
+	for {
+		//output := getData.SlurmJobGetMetrics()
+		//slurmJobs = append(slurmJobs, *output)
+		slurmJobsPtr := getData.ParseSlurmControlMetrics(getData.SlurmControlData())
+		slurmJobs = append(slurmJobs, *slurmJobsPtr)
+		for _, job := range slurmJobs {
+			fmt.Printf("Slurm Jobs: %+v\n", job)
+		}
+		time.Sleep(2 * time.Second)
+	}
+}
+
+/*
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
 		logrus.Info("Starting server on port 9101")
@@ -22,7 +31,8 @@ func main() {
 			logrus.Fatal(err)
 		}
 	}()
-
+*/
+/*
 	for {
 		output := getData.QueryJobs()
 		jobs := getData.ParseJobOutput(output)
@@ -34,3 +44,4 @@ func main() {
 		time.Sleep(2 * time.Second)
 	}
 }
+*/
