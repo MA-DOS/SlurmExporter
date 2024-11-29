@@ -94,115 +94,170 @@ type SlurmJob struct {
 
 // TODO: Modify so struct init functions are wrapped properly
 
-func SlurmJobGetMetrics() *[]SlurmJob {
-	// Init List of SlurmJobs
-	jobList := map[int]SlurmJob{}
-	i := 0
-	for {
+func SlurmJobGetMetrics() *[]SlurmJob { return nil }
 
+/*
+	func ParseSlurmControlMetrics(input []byte) *map[any]map[string]any {
+		// Have JobId as key
+		var jobID string
+
+		//lines := strings.Split(strings.TrimSpace(string(input)), "\n")
+		lines := strings.Split(strings.TrimSpace(string(input)), " ")
+
+		// Nested Map
+		scontrolMap := make(map[any]any)
+
+		// Inner Map
+		var metrics map[string]any
+
+		for _, line := range lines {
+			if strings.Contains(line, "JobId") {
+				keyValue := strings.Split(line, "=")
+				jobID = keyValue[1]
+				//fmt.Printf("jobID: %v\n", jobID)
+				metrics = make(map[string]interface{})
+
+			}
+			if strings.Contains(line, "=") {
+				keyValue := strings.Split(line, "=")
+				key := keyValue[0]
+				value := keyValue[1]
+				//fmt.Printf("key: %v, value: %v\n", key, value)
+				metrics[key] = value
+				scontrolMap[jobID] = metrics
+
+			}
+		}
+		return &scontrolMap
 	}
-	// Get queue metrics
-	queueMetrics := ParseSlurmQueueMetrics(SlurmQueueData())
+*/
 
-	// Get control metrics
-	controlMetrics := ParseSlurmControlMetrics(SlurmControlData())
+func ParseSlurmControlMetrics(input []byte) *map[string]map[string]interface{} {
+	tokens := strings.Fields(string(input))
+	scontrolMap := make(map[string]map[string]interface{})
+	var jobID string
 
-	// Map them on the JobID
-	jobs
+	for _, token := range tokens {
+		keyValue := strings.SplitN(token, "=", 2)
+		if len(keyValue) != 2 {
+			continue
+		}
+		key, value := keyValue[0], keyValue[1]
+		if key == "JobId" {
+			jobID = value
+			scontrolMap[jobID] = make(map[string]interface{})
+		} else if jobID != "" {
+			scontrolMap[jobID][key] = value
+		}
+	}
+	return &scontrolMap
 }
 
 // TODO: It's wrong to return a struct here -> should return a map of metrics per JobID instead
+// TODO: Maybe shorten to same logic as control parser
 func ParseSlurmQueueMetrics(input []byte) *map[int]any {
 	jobsInQueue := make(map[int]any)
 	lines := strings.Split(strings.TrimSpace(string(input)), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "|") {
-			var jm SlurmJob
 			splitted := strings.Split(line, "|")
-			jm.JobID, _ = strconv.Atoi(splitted[0])
-			jm.JobName = splitted[1]
-			jm.Partition = splitted[2]
-			jm.User = splitted[3]
-			jm.Node = splitted[4]
-			jm.MinCPUs, _ = strconv.Atoi(splitted[5])
-			jm.MinTmpDisk, _ = strconv.Atoi(splitted[6])
-			jm.EndTime, _ = time.Parse("2006-01-02T15:04:05", splitted[7])
-			jm.TimeLimit = splitted[8]
-			jm.MinMemory = splitted[9]
-			jm.Command = splitted[10]
-			jm.Priority = splitted[11]
-			jm.Reason = splitted[12]
-			jm.State = splitted[13]
-			jm.SCT = splitted[14]
-			jm.CPUs, _ = strconv.Atoi(splitted[15])
-			jm.Dependency = splitted[16]
-			jm.SocketsPerNode = splitted[17]
-			jm.CoresPerSocket = splitted[18]
-			jm.ThreadsPerCore = splitted[19]
-			jm.TimeLeft = splitted[20]
-			jm.WorkDir = splitted[21]
-			jm.SubmitTime, _ = time.Parse("2006-01-02T15:04:05", splitted[22])
-			jobs = append(jobs, jm)
+			jobID, _ := strconv.Atoi(splitted[0])
+			metrics := map[string]interface{}{
+				"JobName":        splitted[1],
+				"Partition":      splitted[2],
+				"User":           splitted[3],
+				"Node":           splitted[4],
+				"MinCPUs":        splitted[5],
+				"MinTmpDisk":     splitted[6],
+				"EndTime":        splitted[7],
+				"TimeLimit":      splitted[8],
+				"MinMemory":      splitted[9],
+				"Command":        splitted[10],
+				"Priority":       splitted[11],
+				"Reason":         splitted[12],
+				"State":          splitted[13],
+				"SCT":            splitted[14],
+				"CPUs":           splitted[15],
+				"Dependency":     splitted[16],
+				"SocketsPerNode": splitted[17],
+				"CoresPerSocket": splitted[18],
+				"ThreadsPerCore": splitted[19],
+				"TimeLeft":       splitted[20],
+				"WorkDir":        splitted[21],
+				"SubmitTime":     splitted[22],
+			}
+			jobsInQueue[jobID] = metrics
 		}
 	}
-	return &jobs
+	return &jobsInQueue
 }
 
 // TODO: It's wrong to return a struct here -> should return a map of metrics per JobID instead
-func ParseSlurmControlMetrics(input []byte) *[]SlurmJob {
-	var jobs []SlurmJob
+/*
+func ParseSlurmControlMetrics(input []byte) map[int]any {
+	jobsInControl := make(map[int]any)
+	metrics := map[string]interface{}{}
 	lines := strings.Split(strings.TrimSpace(string(input)), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, " ") {
-			splitted := strings.Split(line, " ")
-			var jm SlurmJob
-			for _, fields := range splitted {
-				if strings.Contains(fields, "=") {
-					keyValue := strings.Split(fields, "=")
-					key := keyValue[0]
-					value := keyValue[1]
-					switch key {
-					case "JobId":
-						jm.JobID, _ = strconv.Atoi(value)
-					case "JobState":
-						jm.JobState = value
-					case "RunTime":
-						jm.RunTime, _ = time.Parse("2006-01-02T15:04:05", value)
-					case "EligibleTime":
-						jm.EligibleTime, _ = time.Parse("2006-01-02T15:04:05", value)
-					case "AccrueTime":
-						jm.AccrueTime, _ = time.Parse("2006-01-02T15:04:05", value)
-					case "SuspendTime":
-						jm.SuspendTime, _ = time.Parse("2006-01-02T15:04:05", value)
-					case "EndTime":
-						jm.EndTime2, _ = time.Parse("2006-01-02T15:04:05", value)
-					case "NumTasks":
-						jm.NumTasks, _ = strconv.Atoi(value)
-					case "NumCPUs":
-						jm.NumCPUs, _ = strconv.Atoi(value)
-					case "Mem":
-						jm.MemoryAssigned, _ = strconv.Atoi(value)
-					case "MinMemoryCPU":
-						jm.MinMemoryCPU = value
-					case "CPUs/Task":
-						jm.CPUSperTask, _ = strconv.Atoi(value)
-					case "CPU_IDs":
-						jm.CPU_IDs = value
-					case "StdErr":
-						jm.StdErr = value
-					case "StdIn":
-						jm.StdIn = value
-					case "Stdout":
-						jm.Stdout = value
+		if strings.Contains(fields, "=") {
+			keyValue := strings.Split(fields, "=")
+			key := keyValue[0]
+			value := keyValue[1]
+			if key == "JobId" {
+				jobID, _ = strconv.Atoi(value)
+			}
+			if strings.Contains(line, " ") {
+				splitted := strings.Split(line, " ")
+				var jobID int
+				for _, fields := range splitted {
+					if strings.Contains(fields, "=") {
+						keyValue := strings.Split(fields, "=")
+						key := keyValue[0]
+						value := keyValue[1]
+						switch key {
+						//case "JobId":
+						//jobID, _ = strconv.Atoi(value)
+						//metrics["JobID"], _ = strconv.Atoi(value)
+						case "JobState":
+							metrics["JobState"] = value
+						case "RunTime":
+							metrics["RunTime"], _ = time.Parse("2006-01-02T15:04:05", value)
+						case "EligibleTime":
+							metrics["EligibleTime"], _ = time.Parse("2006-01-02T15:04:05", value)
+						case "AccrueTime":
+							metrics["AccrueTime"], _ = time.Parse("2006-01-02T15:04:05", value)
+						case "SuspendTime":
+							metrics["SuspendTime"], _ = time.Parse("2006-01-02T15:04:05", value)
+						case "EndTime":
+							metrics["EndTime2"], _ = time.Parse("2006-01-02T15:04:05", value)
+						case "NumTasks":
+							metrics["NumTasks"], _ = strconv.Atoi(value)
+						case "NumCPUs":
+							metrics["NumCPUs"], _ = strconv.Atoi(value)
+						case "Mem":
+							metrics["MinMemory"], _ = strconv.Atoi(value)
+						case "MinMemoryCPU":
+							metrics["MinMemoryCPU"] = value
+						case "CPUs/Task":
+							metrics["CPUsperTask"], _ = strconv.Atoi(value)
+						case "CPU_IDs":
+							metrics["CPU_IDs"] = value
+						case "StdErr":
+							metrics["StdErr"] = value
+						case "StdIn":
+							metrics["StdIn"] = value
+						case "Stdout":
+							metrics["Stdout"] = value
+						}
 					}
 				}
+				jobsInControl[jobID] = metrics
 			}
-			jobs = append(jobs, jm)
 		}
 	}
-	return &jobs
+	return jobsInControl
 }
-
+*/
 func ParseSlurmSacctMetrics(input []byte) *[]SlurmJob { return nil }
 
 func SlurmQueueData() []byte {
