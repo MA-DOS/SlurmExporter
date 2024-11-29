@@ -9,8 +9,20 @@ import (
 
 func main() {
 	fmt.Println("Hello, Slurm Monitor!")
-	slurmJobs := []getData.SlurmJob{}
 
+	for {
+		//queueOutput := getData.ParseSlurmQueueMetrics(getData.SlurmQueueData())
+		//fmt.Printf("Queue: %+v\n", queueOutput)
+		controlOutput := getData.ParseSlurmControlMetrics(getData.SlurmControlData())
+
+		for jobID, metrics := range *controlOutput {
+			fmt.Printf("JobID: %s, Metrics: %+v\n", jobID, metrics)
+		}
+		time.Sleep(5 * time.Second)
+	}
+}
+
+/*
 	for {
 		//output := getData.SlurmJobGetMetrics()
 		//slurmJobs = append(slurmJobs, *output)
@@ -22,6 +34,7 @@ func main() {
 		time.Sleep(2 * time.Second)
 	}
 }
+*/
 
 /*
 	http.Handle("/metrics", promhttp.Handler())
