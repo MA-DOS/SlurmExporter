@@ -5,19 +5,38 @@ import (
 	"time"
 
 	"github.com/MA-DOS/SlurmExporter/getData"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	fmt.Println("Hello, Slurm Monitor!")
 
 	for {
-		//queueOutput := getData.ParseSlurmQueueMetrics(getData.SlurmQueueData())
-		//fmt.Printf("Queue: %+v\n", queueOutput)
+		//getData.SlurmJobGetMetrics()
+		qm := getData.ParseSlurmQueueMetrics(getData.SlurmQueueData())
+		cm := getData.ParseSlurmControlMetrics(getData.SlurmControlData())
+		metricMap := getData.AggregateSlurmMetrics(qm, cm)
+
+		/* 				for jobID, metrics := range metricMap {
+			fmt.Printf("JobID: %s\n, Metrics: %+v\n", jobID, metrics)
+
+		} */
+
+		var slurmJob getData.SlurmJob
+
+		result := slurmJob.NewSlurmJobStruct(metricMap)
+
+		for _, job := range *result {
+			logrus.Infof("Slurm Jobs: %+v\n", job)
+		}
+
+		/* 	queueOutput := getData.ParseSlurmQueueMetrics(getData.SlurmQueueData())
+		fmt.Printf("Queue: %+v\n", queueOutput)
 		controlOutput := getData.ParseSlurmControlMetrics(getData.SlurmControlData())
 
-		for jobID, metrics := range *controlOutput {
-			fmt.Printf("JobID: %s, Metrics: %+v\n", jobID, metrics)
-		}
+		for jobID, metrics := range controlOutput {
+		fmt.Printf("JobID: %s, Metrics: %+v\n", jobID, metrics)
+		}  */
 		time.Sleep(5 * time.Second)
 	}
 }
