@@ -66,21 +66,21 @@ type SlurmJob struct {
 	// TODO: This needs a helper func to get PIDs for each job struct
 	ProcessIDs []uint `scontrol:"listpids -j"`
 	// sstat --format=MaxVMSize,AveVMSize,MaxRSS,AveRSS,AveCPU,AveCPUFreq,ConsumedEnergy,MaxDiskRead,MaxDiskWrite,TRESUsageOutAve
-	MaxVMSize       string `sstat:"MaxVMSize"`
-	AveVMSize       string `sstat:"AveVMSize"`
-	MaxRSS          string `sstat:"MaxRSS"`
-	AveRSS          string `sstat:"AveRSS"`
-	AveCPU          string `sstat:"AveCPU"`
-	AveCPUFreq      string `sstat:"AveCPUFreq"`
-	ConsumedEnergy  uint32 `sstat:"ConsumedEnergy"`
-	MaxDiskRead     uint32 `sstat:"MaxDiskRead"`
-	MaxDiskWrite    uint32 `sstat:"MaxDiskWrite"`
-	TRESUsageOutAve uint32 `sstat:"TRESUsageOutAve"`
+	MaxVMSize      string `sstat:"MaxVMSize"`
+	AveVMSize      string `sstat:"AveVMSize"`
+	MaxRSS         string `sstat:"MaxRSS"`
+	AveRSS         string `sstat:"AveRSS"`
+	AveCPU         string `sstat:"AveCPU"`
+	AveCPUFreq     string `sstat:"AveCPUFreq"`
+	ConsumedEnergy int    `sstat:"ConsumedEnergy"`
+	MaxDiskRead    int    `sstat:"MaxDiskRead"`
+	MaxDiskWrite   int    `sstat:"MaxDiskWrite"`
+	// TRESUsageOutAve int    `sstat:"TRESUsageOutAve"`
 	// sacct --format=NTasks,Cluster,NCPUS,ConsumedEnergyRaw,ConsumedEnergy,SystemCPU,TotalCPU,CPUTimeRAW,CPUTime,End,UserCPU,AllocNodes
-	NTasks            uint   `sacct:"--format=NTasks"`
+	NTasks            int    `sacct:"--format=NTasks"`
 	Cluster           string `sacct:"--format=Cluster"`
-	NCPUS             uint   `sacct:"--format=NCPUS"`
-	ConsumedEnergyRaw uint32 `sacct:"--format=ConsumedEnergyRaw"`
+	NCPUS             int    `sacct:"--format=NCPUS"`
+	ConsumedEnergyRaw int    `sacct:"--format=ConsumedEnergyRaw"`
 	ConsumedEnergy2   string `sacct:"--format=ConsumedEnergy"`
 	SystemCPU         string `sacct:"--format=SystemCPU"`
 	TotalCPU          string `sacct:"--format=TotalCPU"`
@@ -88,7 +88,7 @@ type SlurmJob struct {
 	CPUTime           string `sacct:"--format=CPUTime"`
 	End               string `sacct:"--format=End"`
 	UserCPU           string `sacct:"--format=UserCPU"`
-	AllocNodes        uint   `sacct:"--format=AllocNodes"`
+	AllocNodes        int    `sacct:"--format=AllocNodes"`
 }
 
 // TODO: Refactor to not switch case on all metrics but on the struct fields variables
@@ -181,14 +181,34 @@ func (sjs *SlurmJob) NewSlurmJobStruct(metrics map[any]interface{}) *[]SlurmJob 
 				sjs.StdIn = v.(string)
 			case "Stdout":
 				sjs.Stdout = v.(string)
+			case "MaxVMSize":
+				sjs.MaxVMSize = v.(string)
+			case "AveVMSize":
+				sjs.AveVMSize = v.(string)
+			case "MaxRSS":
+				sjs.MaxRSS = v.(string)
+			case "AveRSS":
+				sjs.AveRSS = v.(string)
+			case "AveCPU":
+				sjs.AveCPU = v.(string)
+			case "AveCPUFreq":
+				sjs.AveCPUFreq = v.(string)
+			case "ConsumedEnergy":
+				sjs.ConsumedEnergy, _ = strconv.Atoi(v.(string))
+			case "MaxDiskRead":
+				sjs.MaxDiskRead, _ = strconv.Atoi(v.(string))
+			case "MaxDiskWrite":
+				sjs.MaxDiskWrite, _ = strconv.Atoi(v.(string))
 			}
-			slurmJobs = append(slurmJobs, *sjs)
 		}
+		slurmJobs = append(slurmJobs, *sjs)
 	}
 	return &slurmJobs
 }
 
 // TODO: Add a func call to get sstat metrics and parse the results directly into the tmpMetricsMaps
+// TODO: Consider over which map i'm iterating to gather the end state of each job and display it correctly because currently
+// COMPLETED state will never be printed
 func AggregateSlurmMetrics(metricMaps ...map[any]interface{}) map[any]interface{} {
 	// Read in the maps containing the metrics
 	queueMetrics := metricMaps[0]
@@ -197,12 +217,21 @@ func AggregateSlurmMetrics(metricMaps ...map[any]interface{}) map[any]interface{
 
 	for queueKey := range queueMetrics {
 		if _, exists := controlMetrics[queueKey]; exists {
+			logrus.Info("Match found for jobID: ", queueKey)
+			// TODO: For now ok, call the sstat metrics for the current jobID
+			statData, jobID := SlurmStatData(queueKey.(int))
+			statMetrics := ParseSlurmStatMetrics(statData, jobID)
 			// Merge the metrics into one map
 			tmpMetricsMap := make(map[any]interface{})
 			for k, v := range queueMetrics[queueKey].(map[any]interface{}) {
+				//logrus.Info("Adding metrics from queueMetrics: ", k)
 				tmpMetricsMap[k] = v
 			}
 			for k, v := range controlMetrics[queueKey].(map[any]interface{}) {
+				//logrus.Info("Adding metrics from controlMetrics: ", k)
+				tmpMetricsMap[k] = v
+			}
+			for k, v := range statMetrics[queueKey].(map[any]interface{}) {
 				tmpMetricsMap[k] = v
 			}
 			mergedMetricsMap[queueKey] = tmpMetricsMap
@@ -212,6 +241,41 @@ func AggregateSlurmMetrics(metricMaps ...map[any]interface{}) map[any]interface{
 		}
 	}
 	return mergedMetricsMap
+}
+
+// TODO: Handle the case where no steps are running for the current jobID
+func ParseSlurmStatMetrics(input []byte, jobID int) map[any]interface{} {
+	jobsInStats := make(map[any]interface{})
+	if strings.Contains(string(input), "|") {
+		splitted := strings.Split(string(input), "|")
+		metrics := map[any]interface{}{
+			"MaxVMSize":      splitted[0],
+			"AveVMSize":      splitted[1],
+			"MaxRSS":         splitted[2],
+			"AveRSS":         splitted[3],
+			"AveCPU":         splitted[4],
+			"AveCPUFreq":     splitted[5],
+			"ConsumedEnergy": splitted[6],
+			"MaxDiskRead":    splitted[7],
+			"MaxDiskWrite":   splitted[8],
+		}
+		jobsInStats[jobID] = metrics
+	} else {
+		logrus.Info("No stats found for jobID: ", jobID)
+		metrics := map[any]interface{}{
+			"MaxVMSize":      "Job is PENDING",
+			"AveVMSize":      "Job is PENDING",
+			"MaxRSS":         "Job is PENDING",
+			"AveRSS":         "Job is PENDING",
+			"AveCPU":         "Job is PENDING",
+			"AveCPUFreq":     "Job is PENDING",
+			"ConsumedEnergy": "Job is PENDING",
+			"MaxDiskRead":    "Job is PENDING",
+			"MaxDiskWrite":   "Job is PENDING",
+		}
+		jobsInStats[jobID] = metrics
+	}
+	return jobsInStats
 }
 
 func ParseSlurmControlMetrics(input []byte) map[any]interface{} {
@@ -313,9 +377,8 @@ func SlurmControlData() []byte {
 	return out
 }
 
-// TODO: Add -j flag to command
-func SlurmStatData() []byte {
-	cmd := exec.Command("sstat", "--format=MaxVMSize,AveVMSize,MaxRSS,AveRSS,AveCPU,AveCPUFreq,ConsumedEnergy,MaxDiskRead,MaxDiskWrite,TRESUsageOutAve")
+func SlurmStatData(jobID int) ([]byte, int) {
+	cmd := exec.Command("sstat", "--noheader", "--format=MaxVMSize,AveVMSize,MaxRSS,AveRSS,AveCPU,AveCPUFreq,ConsumedEnergy,MaxDiskRead,MaxDiskWrite", "-p", "-j", strconv.Itoa(jobID))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		logrus.Error("Error creating stdout pipe: ", err)
@@ -327,7 +390,7 @@ func SlurmStatData() []byte {
 	if err := cmd.Wait(); err != nil {
 		logrus.Error("Error waiting for sstat command: ", err)
 	}
-	return out
+	return out, jobID
 }
 
 // TODO: Add timestamps to shorten to current workflow run

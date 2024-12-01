@@ -28,6 +28,7 @@ func main() {
 
 		for _, job := range *result {
 			logrus.Infof("Slurm Jobs: %+v\n", job)
+			//printStructFields(job)
 		}
 
 		/* 	queueOutput := getData.ParseSlurmQueueMetrics(getData.SlurmQueueData())
@@ -37,23 +38,9 @@ func main() {
 		for jobID, metrics := range controlOutput {
 		fmt.Printf("JobID: %s, Metrics: %+v\n", jobID, metrics)
 		}  */
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
-
-/*
-	for {
-		//output := getData.SlurmJobGetMetrics()
-		//slurmJobs = append(slurmJobs, *output)
-		slurmJobsPtr := getData.ParseSlurmControlMetrics(getData.SlurmControlData())
-		slurmJobs = append(slurmJobs, *slurmJobsPtr)
-		for _, job := range slurmJobs {
-			fmt.Printf("Slurm Jobs: %+v\n", job)
-		}
-		time.Sleep(2 * time.Second)
-	}
-}
-*/
 
 /*
 	http.Handle("/metrics", promhttp.Handler())
