@@ -8,6 +8,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var parentJob int
+
+func init() {
+	// Initialize the parent job ID
+	parentJob = getData.ParseSlurmParentJob(getData.GetSlurmParentJob())
+	logrus.Infof("Parent jobID: %d", parentJob)
+}
+
 func main() {
 	fmt.Println("Hello, Slurm Monitor!")
 
@@ -15,7 +23,7 @@ func main() {
 		//getData.SlurmJobGetMetrics()
 		qm := getData.ParseSlurmQueueMetrics(getData.SlurmQueueData())
 		cm := getData.ParseSlurmControlMetrics(getData.SlurmControlData())
-		metricMap := getData.AggregateSlurmMetrics(qm, cm)
+		metricMap := getData.AggregateSlurmMetrics(parentJob, qm, cm)
 
 		/* 				for jobID, metrics := range metricMap {
 			fmt.Printf("JobID: %s\n, Metrics: %+v\n", jobID, metrics)
@@ -38,7 +46,7 @@ func main() {
 		for jobID, metrics := range controlOutput {
 		fmt.Printf("JobID: %s, Metrics: %+v\n", jobID, metrics)
 		}  */
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }
 

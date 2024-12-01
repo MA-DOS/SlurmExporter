@@ -2,6 +2,8 @@ package getData
 
 // This package is used to fetch running slurm jobs by executing the slurm commands
 import (
+	"context"
+	"fmt"
 	"io"
 	"os/exec"
 	"strconv"
@@ -72,7 +74,7 @@ type SlurmJob struct {
 	AveRSS         string `sstat:"AveRSS"`
 	AveCPU         string `sstat:"AveCPU"`
 	AveCPUFreq     string `sstat:"AveCPUFreq"`
-	ConsumedEnergy int    `sstat:"ConsumedEnergy"`
+	ConsumedEnergy string `sstat:"ConsumedEnergy"`
 	MaxDiskRead    int    `sstat:"MaxDiskRead"`
 	MaxDiskWrite   int    `sstat:"MaxDiskWrite"`
 	// TRESUsageOutAve int    `sstat:"TRESUsageOutAve"`
@@ -81,14 +83,14 @@ type SlurmJob struct {
 	Cluster           string `sacct:"--format=Cluster"`
 	NCPUS             int    `sacct:"--format=NCPUS"`
 	ConsumedEnergyRaw int    `sacct:"--format=ConsumedEnergyRaw"`
-	ConsumedEnergy2   string `sacct:"--format=ConsumedEnergy"`
-	SystemCPU         string `sacct:"--format=SystemCPU"`
-	TotalCPU          string `sacct:"--format=TotalCPU"`
-	CPUTimeRAW        string `sacct:"--format=CPUTimeRAW"`
-	CPUTime           string `sacct:"--format=CPUTime"`
-	End               string `sacct:"--format=End"`
-	UserCPU           string `sacct:"--format=UserCPU"`
-	AllocNodes        int    `sacct:"--format=AllocNodes"`
+	//ConsumedEnergy2   string `sacct:"--format=ConsumedEnergy"`
+	SystemCPU  string `sacct:"--format=SystemCPU"`
+	TotalCPU   string `sacct:"--format=TotalCPU"`
+	CPUTimeRAW string `sacct:"--format=CPUTimeRAW"`
+	CPUTime    string `sacct:"--format=CPUTime"`
+	End        string `sacct:"--format=End"`
+	UserCPU    string `sacct:"--format=UserCPU"`
+	AllocNodes int    `sacct:"--format=AllocNodes"`
 }
 
 // TODO: Refactor to not switch case on all metrics but on the struct fields variables
@@ -194,11 +196,35 @@ func (sjs *SlurmJob) NewSlurmJobStruct(metrics map[any]interface{}) *[]SlurmJob 
 			case "AveCPUFreq":
 				sjs.AveCPUFreq = v.(string)
 			case "ConsumedEnergy":
-				sjs.ConsumedEnergy, _ = strconv.Atoi(v.(string))
+				sjs.ConsumedEnergy = v.(string)
 			case "MaxDiskRead":
 				sjs.MaxDiskRead, _ = strconv.Atoi(v.(string))
 			case "MaxDiskWrite":
 				sjs.MaxDiskWrite, _ = strconv.Atoi(v.(string))
+			case "NTasks":
+				sjs.NTasks, _ = strconv.Atoi(v.(string))
+			case "Cluster":
+				sjs.Cluster = v.(string)
+			case "NCPUS":
+				sjs.NCPUS, _ = strconv.Atoi(v.(string))
+			case "ConsumedEnergyRaw":
+				sjs.ConsumedEnergyRaw, _ = strconv.Atoi(v.(string))
+			//case "ConsumedEnergy":
+			//sjs.ConsumedEnergy2 = v.(string)
+			case "SystemCPU":
+				sjs.SystemCPU = v.(string)
+			case "TotalCPU":
+				sjs.TotalCPU = v.(string)
+			case "CPUTimeRAW":
+				sjs.CPUTimeRAW = v.(string)
+			case "CPUTime":
+				sjs.CPUTime = v.(string)
+			case "End":
+				sjs.End = v.(string)
+			case "UserCPU":
+				sjs.UserCPU = v.(string)
+			case "AllocNodes":
+				sjs.AllocNodes, _ = strconv.Atoi(v.(string))
 			}
 		}
 		slurmJobs = append(slurmJobs, *sjs)
@@ -209,7 +235,7 @@ func (sjs *SlurmJob) NewSlurmJobStruct(metrics map[any]interface{}) *[]SlurmJob 
 // TODO: Add a func call to get sstat metrics and parse the results directly into the tmpMetricsMaps
 // TODO: Consider over which map i'm iterating to gather the end state of each job and display it correctly because currently
 // COMPLETED state will never be printed
-func AggregateSlurmMetrics(metricMaps ...map[any]interface{}) map[any]interface{} {
+func AggregateSlurmMetrics(parentJob int, metricMaps ...map[any]interface{}) map[any]interface{} {
 	// Read in the maps containing the metrics
 	queueMetrics := metricMaps[0]
 	controlMetrics := metricMaps[1]
@@ -217,23 +243,69 @@ func AggregateSlurmMetrics(metricMaps ...map[any]interface{}) map[any]interface{
 
 	for queueKey := range queueMetrics {
 		if _, exists := controlMetrics[queueKey]; exists {
-			logrus.Info("Match found for jobID: ", queueKey)
+			// logrus.Info("Match found for jobID: ", queueKey)
+
 			// TODO: For now ok, call the sstat metrics for the current jobID
 			statData, jobID := SlurmStatData(queueKey.(int))
+			if statData == nil {
+				logrus.Info("No stats found for jobID: ", jobID)
+				continue
+			}
 			statMetrics := ParseSlurmStatMetrics(statData, jobID)
+
+			// TODO: For now ok, call the sacct metrics beginning from the slurm parent jobID
+			// Always uses the parnent job to display accounting information only from the parent job on
+			// logrus.Info("Parent jobID: ", parentJob)
+			//sacctData := SlurmSacctData(parentJob)
+
+			// if sacctData == nil {
+			// 	logrus.Info("No accounting data found for parent jobID: ", parentJob)
+			// 	continue
+			// }
+			//sacctMetrics := ParseSlurmSacctMetrics(sacctData)
+
 			// Merge the metrics into one map
 			tmpMetricsMap := make(map[any]interface{})
 			for k, v := range queueMetrics[queueKey].(map[any]interface{}) {
 				//logrus.Info("Adding metrics from queueMetrics: ", k)
 				tmpMetricsMap[k] = v
 			}
+
 			for k, v := range controlMetrics[queueKey].(map[any]interface{}) {
 				//logrus.Info("Adding metrics from controlMetrics: ", k)
 				tmpMetricsMap[k] = v
 			}
+
+			// if statMetricsMap, ok := statMetrics[queueKey].(map[any]interface{}); ok {
+			// 	for k, v := range statMetricsMap {
+			// 		logrus.Info("Adding metrics from statMetrics: ", k, v)
+			// 		tmpMetricsMap[k] = v
+			// 	}
+			// }
 			for k, v := range statMetrics[queueKey].(map[any]interface{}) {
+				//logrus.Info("Adding metrics from statMetrics: ", k, v)
 				tmpMetricsMap[k] = v
 			}
+
+			// if sacctMetricsMap, ok := sacctMetrics[queueKey].(map[any]interface{}); ok {
+			// 	for k, v := range sacctMetricsMap {
+			// 		tmpMetricsMap[k] = v
+			// 		//logrus.Info("Adding metrics from sacctMetrics: ", k)
+			// 	}
+			// } else {
+			// 	logrus.Error("No sacct metrics found for jobID: ", queueKey)
+			// }
+
+			// }
+			// for k, v := range statMetrics[queueKey].(map[any]interface{}) {
+			// 	tmpMetricsMap[k] = v
+			// }
+
+			// for k, v := range sacctMetrics[queueKey].(map[any]interface{}) {
+			// 	tmpMetricsMap[k] = v
+			// 	logrus.Info("Adding metrics from sacctMetrics: ", k)
+			// }
+
 			mergedMetricsMap[queueKey] = tmpMetricsMap
 			// Call func to init the struct with metrics from both maps
 		} else {
@@ -260,6 +332,7 @@ func ParseSlurmStatMetrics(input []byte, jobID int) map[any]interface{} {
 			"MaxDiskWrite":   splitted[8],
 		}
 		jobsInStats[jobID] = metrics
+		//} else if strings.Contains(string(input), "sstat: error: no steps running for job") {
 	} else {
 		logrus.Info("No stats found for jobID: ", jobID)
 		metrics := map[any]interface{}{
@@ -343,7 +416,32 @@ func ParseSlurmQueueMetrics(input []byte) map[any]interface{} {
 }
 
 // TODO: Needs to be implemented
-func ParseSlurmSacctMetrics(input []byte) *[]SlurmJob { return nil }
+func ParseSlurmSacctMetrics(input []byte) map[any]interface{} {
+	jobsInAccounting := make(map[any]interface{})
+	lines := strings.Split(strings.TrimSpace(string(input)), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "|") {
+			splitted := strings.Split(line, "|")
+			jobID, _ := strconv.Atoi(splitted[0])
+			metrics := map[any]interface{}{
+				"NTasks":            splitted[1],
+				"Cluster":           splitted[2],
+				"NCPUS":             splitted[3],
+				"ConsumedEnergyRaw": splitted[4],
+				"ConsumedEnergy":    splitted[5],
+				"SystemCPU":         splitted[6],
+				"TotalCPU":          splitted[7],
+				"CPUTimeRAW":        splitted[8],
+				"CPUTime":           splitted[9],
+				"End":               splitted[10],
+				"UserCPU":           splitted[11],
+				"AllocNodes":        splitted[12],
+			}
+			jobsInAccounting[jobID] = metrics
+		}
+	}
+	return jobsInAccounting
+}
 
 func SlurmQueueData() []byte {
 	cmd := exec.Command("squeue", "--noheader", "--format=%A|%j|%P|%u|%N|%c|%D|%e|%L|%m|%o|%q|%r|%T|%x|%C|%d|%B|%X|%I|%V|%Z|%S")
@@ -394,8 +492,36 @@ func SlurmStatData(jobID int) ([]byte, int) {
 }
 
 // TODO: Add timestamps to shorten to current workflow run
-func SlurmSacctData() []byte {
-	cmd := exec.Command("sacct", "--format=NTasks,Cluster,NCPUS,ConsumedEnergyRaw,ConsumedEnergy,SystemCPU,TotalCPU,CPUTimeRAW,CPUTime,End,UserCPU,AllocNodes")
+func SlurmSacctData(jobID int) []byte {
+	// Create a context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "bash", "-c", fmt.Sprintf("sacct --noheader --format=JobID,NTasks,Cluster,NCPUS,ConsumedEnergyRaw,ConsumedEnergy,SystemCPU,TotalCPU,CPUTimeRAW,CPUTime,End,UserCPU,AllocNodes -p | awk -F'|' '$1 >= %d' | grep -v '\\.batch'", jobID))
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		logrus.Error("Error creating stdout pipe: ", err)
+		return nil
+	}
+	if err := cmd.Start(); err != nil {
+		logrus.Error("Error starting sacct command: ", err)
+		return nil
+	}
+	out, _ := io.ReadAll(stdout)
+	if err := cmd.Wait(); err != nil {
+		logrus.Error("Error waiting for sacct command: ", err)
+		return nil
+	}
+	// Check if the context deadline was exceeded
+	if ctx.Err() == context.DeadlineExceeded {
+		logrus.Error("sacct command timed out")
+		return nil
+	}
+	return out
+}
+
+func GetSlurmParentJob() []byte {
+	cmd := exec.Command("squeue", "--noheader", "--format=%A")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		logrus.Error("Error creating stdout pipe: ", err)
@@ -408,4 +534,13 @@ func SlurmSacctData() []byte {
 		logrus.Error("Error waiting for sacct command: ", err)
 	}
 	return out
+}
+
+func ParseSlurmParentJob(input []byte) int {
+	lines := strings.Split(strings.TrimSpace(string(input)), "\n")
+	if len(lines) > 0 {
+		jobID, _ := strconv.Atoi(lines[0])
+		return jobID
+	}
+	return 0
 }
