@@ -93,6 +93,18 @@ type SlurmJob struct {
 	AllocNodes int    `sacct:"--format=AllocNodes"`
 }
 
+// Init function to create a new SlurmJob struct
+func SlurmJobsGetMetrics() *[]SlurmJob {
+	qm := ParseSlurmQueueMetrics(SlurmQueueData())
+	cm := ParseSlurmControlMetrics(SlurmControlData())
+	metricMap := AggregateSlurmMetrics(ParseSlurmParentJob(GetSlurmParentJob()), qm, cm)
+
+	var slurmJob SlurmJob
+	result := slurmJob.NewSlurmJobStruct(metricMap)
+
+	return result
+}
+
 // TODO: Refactor to not switch case on all metrics but on the struct fields variables
 func (sjs *SlurmJob) NewSlurmJobStruct(metrics map[any]interface{}) *[]SlurmJob {
 	var slurmJobs []SlurmJob
@@ -241,6 +253,32 @@ func AggregateSlurmMetrics(parentJob int, metricMaps ...map[any]interface{}) map
 	controlMetrics := metricMaps[1]
 	mergedMetricsMap := make(map[any]interface{})
 
+	// Second approach: Iterate over control map, output includes every job that was run in the workflow displaying the current state
+	// In the end every job is displayed in COMPLETED state
+	for controlKey := range controlMetrics {
+		if _, exists := queueMetrics[controlKey]; exists {
+			logrus.Info("Match found for jobID: ", controlKey)
+			tmpMetricsMap := make(map[any]interface{})
+			for k, v := range queueMetrics[controlKey].(map[any]interface{}) {
+				//logrus.Info("Adding metrics from queueMetrics: ", k)
+				tmpMetricsMap[k] = v
+			}
+
+			for k, v := range controlMetrics[controlKey].(map[any]interface{}) {
+				//logrus.Info("Adding metrics from controlMetrics: ", k)
+				tmpMetricsMap[k] = v
+			}
+			mergedMetricsMap[controlKey] = tmpMetricsMap
+			// Call func to init the struct with metrics from both maps
+		} else {
+			logrus.Info("No match found for jobID: ", controlKey)
+		}
+	}
+	return mergedMetricsMap
+}
+
+/*
+	// First approach: Iterate over queue Map, output of the Job Struct behaves just like squeue does
 	for queueKey := range queueMetrics {
 		if _, exists := controlMetrics[queueKey]; exists {
 			// logrus.Info("Match found for jobID: ", queueKey)
@@ -313,7 +351,7 @@ func AggregateSlurmMetrics(parentJob int, metricMaps ...map[any]interface{}) map
 		}
 	}
 	return mergedMetricsMap
-}
+} */
 
 // TODO: Handle the case where no steps are running for the current jobID
 func ParseSlurmStatMetrics(input []byte, jobID int) map[any]interface{} {
