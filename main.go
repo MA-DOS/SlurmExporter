@@ -30,9 +30,12 @@ var listenAddress = flag.String(
 
 func main() {
 	flag.Parse()
-	fmt.Println("Hello, Slurm Monitor!")
+	fmt.Println("Hello, Slurm Exporter!")
 
-	logrus.Infof("Starting Server: %s", *listenAddress)
+	logrus.Infof("Starting Server on port %s", *listenAddress)
 	http.Handle("/metrics", promhttp.Handler())
+
+	// Start the processing indicator
 	logrus.Fatal(http.ListenAndServe(*listenAddress, nil))
+
 }
