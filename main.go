@@ -12,14 +12,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var parentJob int
-
 func init() {
-	// Initialize the parent job ID
-	parentJob = getData.ParseSlurmParentJob(getData.GetSlurmParentJob())
+	// Initialize the parent job ID.
+	parentJob := getData.ParseSlurmParentJob(getData.GetSlurmParentJob())
+
 	logrus.Infof("Parent jobID: %d", parentJob)
 
-	// Initialize Prometheus Exporter
+	// Initialize Prometheus Exporter.
 	prometheus.MustRegister(log2prometheus.NewSlurmJobCollector())
 }
 
@@ -28,6 +27,7 @@ var listenAddress = flag.String(
 	":8082",
 	"The address to listen on for HTTP requests.")
 
+// TODO: Integrate usage flags to run the program in different modes.
 func main() {
 	flag.Parse()
 	fmt.Println("Hello, Slurm Exporter!")
