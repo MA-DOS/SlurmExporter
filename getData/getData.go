@@ -16,11 +16,10 @@ import (
 var noWorkflowRunning bool
 var workflowRunning bool
 var parentJob int
-
-// var completedJobs map[int]bool
+var completedJobs map[int]bool
 
 func init() {
-	// completedJobs = make(map[int]bool)
+	completedJobs = make(map[int]bool)
 	// logrus.Info("Global map 'completedJobs' initialized.")
 	parentJob = ParseSlurmParentJob(GetSlurmParentJob())
 	logrus.Infof("Parent jobID: %d", parentJob)
@@ -467,8 +466,6 @@ func ParseSlurmJobPid(input []byte, jobID int) map[int]int {
 func ParseSlurmControlMetrics(input []byte) map[any]interface{} {
 	tokens := strings.Fields(string(input))
 	scontrolMap := make(map[any]interface{})
-	// completedJobs := make(map[int]bool)
-	// var jobState string
 	var jobID int
 
 	for _, token := range tokens {
@@ -477,50 +474,65 @@ func ParseSlurmControlMetrics(input []byte) map[any]interface{} {
 			continue
 		}
 		key, value := keyValue[0], keyValue[1]
-
-		// if key == "JobId" && (jobID, _ = strconv.Atoi(value)) >= parentJob
 		if key == "JobId" {
-			jobID, _ = strconv.Atoi(value)
-		}
-		if key == "JobId" && jobID >= parentJob {
-			// if key == "JobState" {
-			// 	jobState = value
-			// 	// logrus.Infof("Parsed JobState: %s", jobState)
-			// }
-			// // Check if the jobID is completed already.
-			// if jobState == "COMPLETED" {
-			// 	if completedJobs[jobID] {
-			// 	} else if !completedJobs[jobID] {
-			// 		completedJobs[jobID] = true
-			// 		// logrus.Info("Job is completed and only sent once: ", jobID)
-			// 	}
-			// } else if jobState == "RUNNING" {
-			// 	// logrus.Info("Job is running: ", jobID)
-			// }
-
+			jobID, _ = (strconv.Atoi(value))
 			metrics := make(map[any]interface{})
 			scontrolMap[jobID] = metrics
-
-			if _, exists := scontrolMap[jobID]; !exists {
-				scontrolMap[jobID] = make(map[any]interface{})
-			}
-
 		} else if jobID != 0 {
-			metrics, ok := scontrolMap[jobID].(map[any]interface{})
-			if !ok {
-				continue
-			}
+			metrics := scontrolMap[jobID].(map[any]interface{})
 			metrics[key] = value
 			scontrolMap[jobID] = metrics
-
-			logrus.Info("Control metrics for JobID", jobID, ":")
-			for k, v := range metrics {
-				logrus.Infof(" %v: %v", k, v)
-			}
-			logrus.Info("\n")
+			// scontrolMap = FilterControlMetrics(scontrolMap)
 		}
 	}
+	// Filter out every previous jobID from the map.
+	scontrolMap = RemoveCompletedJobsFromControlOuptut(RemoveOldJobsFromControlOutput(scontrolMap))
+	// Debug Print
+	fmt.Print("Control Metrics: ", scontrolMap)
+
+	fmt.Println("----------------- New scontrol result -----------------")
+
 	return scontrolMap
+}
+
+func RemoveOldJobsFromControlOutput(controlMap map[any]interface{}) map[any]interface{} {
+	filteredMap := make(map[any]interface{})
+
+	// Iterate over the controlMap and filter out jobs older than the current parentJob
+	for jobID, metrics := range controlMap {
+		// Ensure jobID is of type int before comparison
+		if id, ok := jobID.(int); ok {
+			if id >= parentJob {
+				filteredMap[jobID] = metrics
+			}
+		}
+	}
+	return filteredMap
+}
+
+func RemoveCompletedJobsFromControlOuptut(filteredControlMap map[any]interface{}) map[any]interface{} {
+	duplicateFreeMap := make(map[any]interface{})
+
+	for jobID, metrics := range filteredControlMap {
+		if jobMetrics, ok := metrics.(map[any]interface{}); ok {
+			if jobState, exists := jobMetrics["JobState"]; exists && jobState == "COMPLETED" {
+				if _, alreadyCompleted := completedJobs[jobID.(int)]; alreadyCompleted {
+					logrus.Info("Job is already marked as completed: ", jobID)
+					continue
+				} else {
+					logrus.Info("Job is added to completed jobs: ", jobID)
+					completedJobs[jobID.(int)] = true
+					duplicateFreeMap[jobID] = metrics
+					continue
+				}
+			} else {
+
+				logrus.Info("Job is not in COMPLETED state: ", jobID)
+				duplicateFreeMap[jobID] = metrics
+			}
+		}
+	}
+	return duplicateFreeMap
 }
 
 func ParseSlurmQueueMetrics(input []byte) map[any]interface{} {
