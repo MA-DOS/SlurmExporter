@@ -15,6 +15,16 @@ import (
 
 var noWorkflowRunning bool
 var workflowRunning bool
+var parentJob int
+
+// var completedJobs map[int]bool
+
+func init() {
+	// completedJobs = make(map[int]bool)
+	// logrus.Info("Global map 'completedJobs' initialized.")
+	parentJob = ParseSlurmParentJob(GetSlurmParentJob())
+	logrus.Infof("Parent jobID: %d", parentJob)
+}
 
 // This struct is used to store the output of the slurm cli interface
 type SlurmJob struct {
@@ -64,7 +74,6 @@ type SlurmJob struct {
 	StdIn        string `scontrol:"show job --details"`
 	Stdout       string `scontrol:"show job --details"`
 	// scontrol listpids -j
-	// TODO: This needs a helper func to get PIDs for each job struct
 	ParentJobPID int `scontrol:"listpid "`
 	// sstat --format=MaxVMSize,AveVMSize,MaxRSS,AveRSS,AveCPU,AveCPUFreq,ConsumedEnergy,MaxDiskRead,MaxDiskWrite,TRESUsageOutAve
 	MaxVMSize      string `sstat:"MaxVMSize"`
@@ -121,7 +130,7 @@ func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{
 		return &slurmJobs
 	}
 
-	// Iterate over each jobID in the map and init the struct with the nested map metrics
+	// Iterate over each jobID in the map and init the struct with the nested map metrics.
 	for jobID := range metrics {
 		if !workflowRunning {
 			logrus.Info("Metrics found... being logged to Prometheus!")
@@ -129,7 +138,7 @@ func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{
 		}
 
 		sjs.JobID = jobID.(int)
-		// Filter out old jobs of previous workflow runs
+		// Filter out old jobs of previous workflow runs.
 		if sjs.JobID >= parentJob {
 			for k, v := range metrics[jobID].(map[any]interface{}) {
 				switch k {
@@ -146,12 +155,11 @@ func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{
 				case "MinTmpDisk":
 					sjs.MinTmpDisk, _ = strconv.Atoi(v.(string))
 				case "EndTime":
-					parsedTime, _ := time.Parse("15:04:05", v.(string))
-					sjs.EndTime = parsedTime.Format("15:04:05")
-					fmt.Println(sjs.EndTime)
+					parsedTime, _ := time.Parse("2006-01-02T15:04:05", v.(string))
+					sjs.EndTime = parsedTime.Format("2006-01-02T15:04:05")
+					// logrus.Info("EndTime: ", sjs.EndTime)
 				case "TimeLimit":
 					sjs.TimeLimit = v.(string)
-					fmt.Println(sjs.TimeLimit)
 				case "CoresPerSocket":
 					sjs.CoresPerSocket = v.(string)
 				case "MinMemory":
@@ -176,31 +184,33 @@ func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{
 					sjs.ThreadsPerCore = v.(string)
 				case "TimeLeft":
 					sjs.TimeLeft = v.(string)
-					fmt.Println(sjs.TimeLeft)
 				case "WorkDir":
 					sjs.WorkDir = v.(string)
 				case "SubmitTime":
-					parsedTime, _ := time.Parse("15:04:05", v.(string))
-					sjs.SubmitTime = parsedTime.Format("15:04:05")
-					fmt.Println(sjs.SubmitTime)
+					parsedTime, _ := time.Parse("2006-01-02T15:04:05", v.(string))
+					sjs.SubmitTime = parsedTime.Format("2006-01-02T15:04:05")
+					// logrus.Info("SubmitTime: ", sjs.SubmitTime)
 				case "JobState":
 					sjs.JobState = v.(string)
 				case "RunTime":
 					parsedTime, _ := time.Parse("15:04:05", v.(string))
 					sjs.RunTime = parsedTime.Format("15:04:05")
+					// logrus.Info("RunTime: ", sjs.RunTime)
 				case "EligibleTime":
-					parsedTime, _ := time.Parse("15:04:05", v.(string))
-					sjs.EligibleTime = parsedTime.Format("15:04:05")
+					parsedTime, _ := time.Parse("2006-01-02T15:04:05", v.(string))
+					sjs.EligibleTime = parsedTime.Format("2006-01-02T15:04:05")
+					// logrus.Info("EligibleTime: ", sjs.EligibleTime)
 				case "AccrueTime":
-					parsedTime, _ := time.Parse("15:04:05", v.(string))
-					sjs.AccrueTime = parsedTime.Format("15:04:05")
+					parsedTime, _ := time.Parse("2006-01-02T15:04:05", v.(string))
+					sjs.AccrueTime = parsedTime.Format("2006-01-02T15:04:05")
+					// logrus.Info("AccrueTime: ", sjs.AccrueTime)
 				case "SuspendTime":
-					parsedTime, _ := time.Parse("15:04:05", v.(string))
-					sjs.SuspendTime = parsedTime.Format("15:04:05")
-					fmt.Println(sjs.SuspendTime)
+					parsedTime, _ := time.Parse("2006-01-02T15:04:05", v.(string))
+					sjs.SuspendTime = parsedTime.Format("2006-01-02T15:04:05")
+					// logrus.Info("SuspendTime: ", sjs.SuspendTime)
 				case "EndTime2":
-					parsedTime, _ := time.Parse("15:04:05", v.(string))
-					sjs.EndTime2 = parsedTime.Format("15:04:05")
+					parsedTime, _ := time.Parse("2006-01-02T15:04:05", v.(string))
+					sjs.EndTime2 = parsedTime.Format("2006-01-02T15:04:05")
 				case "CPU_IDs":
 					sjs.CPU_IDs = v.(string)
 				case "NumCPUs":
@@ -228,9 +238,11 @@ func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{
 				case "AveRSS":
 					sjs.AveRSS = v.(string)
 				case "AveCPU":
-					sjs.AveCPU = v.(string)
+					parsedCPUTime, _ := time.Parse("15:04.000", v.(string))
+					sjs.AveCPU = parsedCPUTime.Format("15:04.000")
 				case "AveCPUFreq":
 					sjs.AveCPUFreq = v.(string)
+					// logrus.Info("AveCPUFreq: ", sjs.AveCPUFreq)
 				case "ConsumedEnergy":
 					sjs.ConsumedEnergy = v.(string)
 				case "MaxDiskRead":
@@ -268,24 +280,8 @@ func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{
 		}
 		slurmJobs = append(slurmJobs, *sjs)
 	}
+	// fmt.Println("Slurm Jobs: ", slurmJobs)
 	return &slurmJobs
-}
-
-func mapStatData(jobID any) (map[any]interface{}, error) {
-	statData, job_id, err := SlurmStatData(jobID.(int))
-	if err != nil {
-		return nil, err
-	}
-	return ParseSlurmStatMetrics(statData, job_id), nil
-}
-
-func mapAcctData(parentJob int) (map[any]interface{}, error) {
-	acctData, err := SlurmSacctData(parentJob)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSlurmSacctMetrics(acctData), nil
-
 }
 
 func AggregateSlurmMetrics(parentJob int, metricMaps ...map[any]interface{}) map[any]interface{} {
@@ -302,11 +298,13 @@ func AggregateSlurmMetrics(parentJob int, metricMaps ...map[any]interface{}) map
 			// Write all the metrics from squeue
 			for k, v := range queueMetrics[controlKey].(map[any]interface{}) {
 				tmpMetricsMap[k] = v
+				// logrus.Infof("Queue Metrics have key: %v, value: %v", k, v)
 			}
 
 			// Write all the metrics from scontrol
 			for k, v := range controlMetrics[controlKey].(map[any]interface{}) {
 				tmpMetricsMap[k] = v
+				// logrus.Infof("Control Metrics have key: %v, value: %v", k, v)
 			}
 
 			statMetrics, err := mapStatData(controlKey)
@@ -314,6 +312,7 @@ func AggregateSlurmMetrics(parentJob int, metricMaps ...map[any]interface{}) map
 			} else {
 				for k, v := range statMetrics[controlKey].(map[any]interface{}) {
 					tmpMetricsMap[k] = v
+					// logrus.Infof("Stat metrics have key: %v, value: %v", k, v)
 				}
 			}
 
@@ -336,12 +335,43 @@ func AggregateSlurmMetrics(parentJob int, metricMaps ...map[any]interface{}) map
 	return mergedMetricsMap
 }
 
+func mapStatData(jobID any) (map[any]interface{}, error) {
+	statData, job_id, err := SlurmStatData(jobID.(int))
+	if err != nil {
+		return nil, err
+	}
+	return ParseSlurmStatMetrics(statData, job_id), nil
+}
+
+func mapAcctData(parentJob int) (map[any]interface{}, error) {
+	acctData, err := SlurmSacctData(parentJob)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSlurmSacctMetrics(acctData), nil
+
+}
+
+// TODO: Return default values if no steps are running for the job.
 func ParseSlurmStatMetrics(input []byte, jobID int) map[any]interface{} {
 	jobPIDMap := ParseSlurmJobPid(GetJobPid(jobID))
-	parentJobPID := jobPIDMap[jobID]
+	parentJobPID, exists := jobPIDMap[jobID]
+	if !exists {
+		parentJobPID = 0
+	}
+
 	jobsInStats := make(map[any]interface{})
+
+	// Jobs stats are being found. Map is created.
 	if strings.Contains(string(input), "|") {
 		splitted := strings.Split(string(input), "|")
+		for i := range splitted {
+			if splitted[i] == "" {
+				splitted[i] = "0"
+				logrus.Info("Sstat returned empty fields due to suspended or completed jobs.")
+			}
+		}
+
 		metrics := map[any]interface{}{
 			"MaxVMSize":      splitted[0],
 			"AveVMSize":      splitted[1],
@@ -354,16 +384,27 @@ func ParseSlurmStatMetrics(input []byte, jobID int) map[any]interface{} {
 			"MaxDiskWrite":   splitted[8],
 			"ParentJobPID":   parentJobPID,
 		}
+		// logrus.Infof("Sstat returned for job %d: %s", jobID, metrics)
 		jobsInStats[jobID] = metrics
+	} else if strings.Contains(string(input), "sstat: error: couldn't get steps for job") {
+		// logrus.Warnf("No stat metrics available for job %d. Defaulting metrics to zero.", jobID)
+		metrics := map[any]interface{}{
+			"MaxVMSize":      "0",
+			"AveVMSize":      "0",
+			"MaxRSS":         "0",
+			"AveRSS":         "0",
+			"AveCPU":         "0",
+			"AveCPUFreq":     "0",
+			"ConsumedEnergy": "0",
+			"MaxDiskRead":    0,
+			"MaxDiskWrite":   0,
+			"ParentJobPID":   0,
+		}
+		logrus.Info("Default Stats are: ", metrics)
+		jobsInStats[jobID] = metrics
+
 	}
 	return jobsInStats
-}
-
-func getValueOrDefault(splitted []string, index int) string {
-	if index < len(splitted) && splitted[index] != "" {
-		return splitted[index]
-	}
-	return "0"
 }
 
 func GetJobPid(jobID int) ([]byte, int) {
@@ -373,12 +414,9 @@ func GetJobPid(jobID int) ([]byte, int) {
 		logrus.Error("Error creating stdout pipe: ", err)
 	}
 	if err := cmd.Start(); err != nil {
-		logrus.Error("Error starting sstat command: ", err)
+		logrus.Error("Error starting scontrol command: ", err)
 	}
 	out, _ := io.ReadAll(stdout)
-	if err := cmd.Wait(); err != nil {
-		logrus.Error("Job is already finished and metrics will be defaulted to zero.", err)
-	}
 	return out, jobID
 }
 
@@ -386,32 +424,51 @@ func ParseSlurmJobPid(input []byte, jobID int) map[int]int {
 	pids := make(map[int]int)
 	lines := strings.Split(strings.TrimSpace(string(input)), "\n")
 
+	if len(lines) == 0 {
+		// logrus.Warnf("No output from scontrol listpids for job %d. Returning empty map.", jobID)
+		return pids
+	}
+
+	// Track the number of valid PIDs found for the job
+	validPIDs := []int{}
+
 	for _, line := range lines {
 		fields := strings.Fields(line)
 		if len(fields) < 5 {
+			// logrus.Warnf("Malformed line in scontrol listpids output for job %d: %s", jobID, line)
 			continue
 		}
 
 		pid, err := strconv.Atoi(fields[0])
 		if err != nil {
+			// logrus.Warnf("Failed to parse PID in scontrol listpids output for job %d: %s", jobID, fields[0])
 			continue
 		}
 
-		localID := fields[3]
-		globaldID := fields[4]
-
-		if localID == "0" && globaldID == "0" {
-			pids[jobID] = pid
-		}
-
+		// Collect valid PIDs regardless of LOCALID and GLOBALID
+		validPIDs = append(validPIDs, pid)
 	}
-	fmt.Printf("PIDS: %v\n", pids)
+
+	// Check if there are at least two PIDs
+	if len(validPIDs) >= 2 {
+		pids[jobID] = validPIDs[1] // Use the child's PID
+		// logrus.Infof("Mapped childs. PID for job %d: %d", jobID, validPIDs[1])
+	} else if len(validPIDs) == 1 {
+		// logrus.Warnf("Only one PID found for job %d. Returning the first PID: %d", jobID, validPIDs[0])
+		pids[jobID] = validPIDs[0]
+	} else {
+		// logrus.Warnf("No valid PIDs found for job %d.", jobID)
+	}
+
 	return pids
 }
 
+// Filter out metrics from previous runs and only parse a completed job once.
 func ParseSlurmControlMetrics(input []byte) map[any]interface{} {
 	tokens := strings.Fields(string(input))
 	scontrolMap := make(map[any]interface{})
+	// completedJobs := make(map[int]bool)
+	// var jobState string
 	var jobID int
 
 	for _, token := range tokens {
@@ -420,14 +477,47 @@ func ParseSlurmControlMetrics(input []byte) map[any]interface{} {
 			continue
 		}
 		key, value := keyValue[0], keyValue[1]
+
+		// if key == "JobId" && (jobID, _ = strconv.Atoi(value)) >= parentJob
 		if key == "JobId" {
-			jobID, _ = (strconv.Atoi(value))
+			jobID, _ = strconv.Atoi(value)
+		}
+		if key == "JobId" && jobID >= parentJob {
+			// if key == "JobState" {
+			// 	jobState = value
+			// 	// logrus.Infof("Parsed JobState: %s", jobState)
+			// }
+			// // Check if the jobID is completed already.
+			// if jobState == "COMPLETED" {
+			// 	if completedJobs[jobID] {
+			// 	} else if !completedJobs[jobID] {
+			// 		completedJobs[jobID] = true
+			// 		// logrus.Info("Job is completed and only sent once: ", jobID)
+			// 	}
+			// } else if jobState == "RUNNING" {
+			// 	// logrus.Info("Job is running: ", jobID)
+			// }
+
 			metrics := make(map[any]interface{})
 			scontrolMap[jobID] = metrics
+
+			if _, exists := scontrolMap[jobID]; !exists {
+				scontrolMap[jobID] = make(map[any]interface{})
+			}
+
 		} else if jobID != 0 {
-			metrics := scontrolMap[jobID].(map[any]interface{})
+			metrics, ok := scontrolMap[jobID].(map[any]interface{})
+			if !ok {
+				continue
+			}
 			metrics[key] = value
 			scontrolMap[jobID] = metrics
+
+			logrus.Info("Control metrics for JobID", jobID, ":")
+			for k, v := range metrics {
+				logrus.Infof(" %v: %v", k, v)
+			}
+			logrus.Info("\n")
 		}
 	}
 	return scontrolMap
@@ -465,7 +555,7 @@ func ParseSlurmQueueMetrics(input []byte) map[any]interface{} {
 				"SubmitTime":     splitted[22],
 			}
 			jobsInQueue[jobID] = metrics
-			fmt.Println(jobsInQueue)
+			// logrus.Info("Queue Metrics are: ", metrics)
 		}
 	}
 	return jobsInQueue
@@ -546,7 +636,6 @@ func SlurmStatData(jobID int) ([]byte, int, error) {
 	return out, jobID, err
 }
 
-// TODO: Add timestamps to shorten to current workflow run
 func SlurmSacctData(jobID int) ([]byte, error) {
 	cmd := exec.Command("bash", "-c", fmt.Sprintf("sacct --noheader --format=JobID,NTasks,Cluster,NCPUS,ConsumedEnergyRaw,ConsumedEnergy,SystemCPU,TotalCPU,CPUTimeRAW,CPUTime,End,UserCPU,AllocNodes -p | awk -F'|' '$1 >= %d' | grep -v '\\.batch'", jobID))
 	stdout, err := cmd.StdoutPipe()
