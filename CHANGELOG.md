@@ -1,3 +1,10 @@
+## [1.2.12](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.11...v1.2.12) (2025-05-16)
+
+
+### Bug Fixes
+
+* clean release stage ([27d79b8](https://github.com/MA-DOS/SlurmExporter/commit/27d79b811ea4c28276f0c7a62c62d6eb35f14398))
+
 ## [1.2.11](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.10...v1.2.11) (2025-05-16)
 
 
