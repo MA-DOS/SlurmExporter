@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net/http"
 
 	"github.com/MA-DOS/SlurmExporter/getData"
@@ -25,13 +24,12 @@ var listenAddress = flag.String(
 
 func main() {
 	flag.Parse()
-	fmt.Println("Hello, Slurm Exporter!")
 
 	// Start the parent job watcher in the background
 	getData.StartParentJobWatcher()
 
 	// Start the HTTP server
-	logrus.Infof("Starting Server on port %s", *listenAddress)
+	logrus.Infof("Starting Slurm Exporter on port %s", *listenAddress)
 	http.Handle("/metrics", promhttp.Handler())
 	logrus.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
