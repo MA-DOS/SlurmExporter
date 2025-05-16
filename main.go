@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/MA-DOS/SlurmExporter/getData"
 	"github.com/MA-DOS/SlurmExporter/log2prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -19,17 +20,18 @@ func init() {
 var listenAddress = flag.String(
 	"listen-address",
 	":8082",
-	"The address to listen on for HTTP requests.")
+	"The address to listen on for HTTP requests.",
+)
 
-// TODO: Integrate usage flags to run the program in different modes.
 func main() {
 	flag.Parse()
 	fmt.Println("Hello, Slurm Exporter!")
 
+	// Start the parent job watcher in the background
+	getData.StartParentJobWatcher()
+
+	// Start the HTTP server
 	logrus.Infof("Starting Server on port %s", *listenAddress)
 	http.Handle("/metrics", promhttp.Handler())
-
-	// Start the processing indicator
 	logrus.Fatal(http.ListenAndServe(*listenAddress, nil))
-
 }

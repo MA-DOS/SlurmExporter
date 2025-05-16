@@ -6,33 +6,44 @@ import (
 	"io"
 	"os/exec"
 	"strconv"
+	"sync"
 
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
-var noWorkflowRunning bool
-var workflowRunning bool
-var parentJob int
-var completedJobs map[int]bool
+var (
+	noWorkflowRunning bool
+	workflowRunning   bool
+	parentJob         int
+	parentJobLock     sync.Mutex
+	completedJobs     map[int]bool
+)
 
-func init() {
-	completedJobs = make(map[int]bool)
-	parentJobChan := make(chan int)
+// StartParentJobWatcher starts a goroutine to continuously update the parentJob variable
+func StartParentJobWatcher() {
 	go func() {
 		for {
-			logrus.Info("Waiting to find Slurm Job.")
 			jobID := ParseSlurmParentJob(GetSlurmParentJob())
 			if jobID != 0 {
-				parentJobChan <- jobID
+				parentJobLock.Lock()
+				parentJob = jobID
+				parentJobLock.Unlock()
+				logrus.Infof("Parent jobID found: %d", jobID)
 				return
 			}
-			time.Sleep(5 * time.Second)
+			logrus.Info("Waiting to find Slurm Job...")
+			time.Sleep(5 * time.Second) // Retry every 5 seconds
 		}
 	}()
-	parentJob = <-parentJobChan
-	logrus.Infof("Parent jobID: %d", parentJob)
+}
+
+// GetParentJob safely retrieves the current value of parentJob
+func GetParentJob() int {
+	parentJobLock.Lock()
+	defer parentJobLock.Unlock()
+	return parentJob
 }
 
 // This struct is used to store the output of the slurm cli interface
