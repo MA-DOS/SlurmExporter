@@ -43,11 +43,14 @@ jobs:
         with:
           go-version: "1.18"
 
-      - name: Run GoReleaser using that tag
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean
+      - name: Install GoReleaser manually
+        run: |
+          curl -sSfL https://github.com/goreleaser/goreleaser/releases/download/v2.9.0/goreleaser_Linux_x86_64.tar.gz | tar -xz
+          sudo mv goreleaser /usr/local/bin/
+
+      - name: Run GoReleaser using latest semantic-release tag
+        run: |
+          echo "Using tag: $RELEASE_TAG"
+          goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
