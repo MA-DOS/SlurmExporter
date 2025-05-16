@@ -1,0 +1,20 @@
+name: Conventional Commit Check
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  check-commit-message:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check commit message follows Conventional Commits
+        run: |
+          msg="${{ github.event.head_commit.message }}"
+          pattern='^(feat|fix|chore|docs|style|refactor|perf|test)(\(.+\))?: .+'
+          if ! echo "$msg" | grep -Eq "$pattern"; then
+            echo "Commit message does not follow Conventional Commits: '$msg'"
+            exit 1
+          fi
