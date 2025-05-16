@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/MA-DOS/SlurmExporter/compare/v1.1.0...v1.2.0) (2025-05-16)
+
+
+### Features
+
+* added go-releaser correctly ([e78d04e](https://github.com/MA-DOS/SlurmExporter/commit/e78d04e404e3567baeca5a905171e9eb54d13e3c))
+
 # [1.1.0](https://github.com/MA-DOS/SlurmExporter/compare/v1.0.0...v1.1.0) (2025-05-16)
 
 
