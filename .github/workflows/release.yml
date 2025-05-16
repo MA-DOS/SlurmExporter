@@ -33,10 +33,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fetch tags created by semantic-release
+      - name: Fetch and checkout latest tag from semantic-release
         run: |
           git fetch --tags --force
-          echo "RELEASE_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
+          echo "RELEASE_TAG=$LATEST_TAG" >> $GITHUB_ENV
+          git checkout "$LATEST_TAG"
 
       - name: Set up Go
         uses: actions/setup-go@v5
