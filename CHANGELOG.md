@@ -1,3 +1,10 @@
+## [1.2.4](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.3...v1.2.4) (2025-05-16)
+
+
+### Bug Fixes
+
+* rm sep gorelease stage ([aa1bded](https://github.com/MA-DOS/SlurmExporter/commit/aa1bdedd6d4d19f62f7904a1e9dcbf919ecdb704))
+
 ## [1.2.3](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.2...v1.2.3) (2025-05-16)
 
 
