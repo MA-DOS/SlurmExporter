@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/MA-DOS/SlurmExporter/getData"
 	"github.com/MA-DOS/SlurmExporter/log2prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -13,11 +12,6 @@ import (
 )
 
 func init() {
-	// Initialize the parent job ID.
-	parentJob := getData.ParseSlurmParentJob(getData.GetSlurmParentJob())
-
-	logrus.Infof("Parent jobID: %d", parentJob)
-
 	// Initialize Prometheus Exporter.
 	prometheus.MustRegister(log2prometheus.NewSlurmJobCollector())
 }
