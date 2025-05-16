@@ -1,3 +1,10 @@
+## [1.2.8](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.7...v1.2.8) (2025-05-16)
+
+
+### Bug Fixes
+
+* update ([e40a33b](https://github.com/MA-DOS/SlurmExporter/commit/e40a33bd452b754300515b4b688605a083678129))
+
 ## [1.2.7](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.6...v1.2.7) (2025-05-16)
 
 
