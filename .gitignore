@@ -47,4 +47,5 @@ yarn-error.log
 # Semantic Release artifacts
 *.tgz
 .npm/
-.release/
+.release/# Added by goreleaser init:
+dist/
