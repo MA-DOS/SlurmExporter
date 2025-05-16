@@ -38,3 +38,13 @@ vendor/
 
 # Go workspace file
 go.work
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Semantic Release artifacts
+*.tgz
+.npm/
+.release/
