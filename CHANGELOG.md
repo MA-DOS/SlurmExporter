@@ -1,3 +1,12 @@
+## [1.2.7](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.6...v1.2.7) (2025-05-16)
+
+
+### Bug Fixes
+
+* rm the conv. commit check ([8f79053](https://github.com/MA-DOS/SlurmExporter/commit/8f790533d7a0c7c13a43584473b6d4fcc1e4c5ce))
+* run goreleaser distro ([202deda](https://github.com/MA-DOS/SlurmExporter/commit/202deda1431cde34384790ddc5bf3502c8233bed))
+* update release logic ([7932560](https://github.com/MA-DOS/SlurmExporter/commit/7932560c2ed643065b19c8c77b627167758bbaa3))
+
 ## [1.2.6](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.5...v1.2.6) (2025-05-16)
 
 
