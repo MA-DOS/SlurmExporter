@@ -1,9 +1,8 @@
-name: Release
+name: Semantic Release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: write
@@ -13,46 +12,17 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout full history
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install semantic-release
-        run: npm install
+      - run: npm install
 
-      - name: Run semantic-release
-        run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Fetch and checkout latest tag from semantic-release
-        run: |
-          git fetch --tags --force
-          LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
-          echo "RELEASE_TAG=$LATEST_TAG" >> $GITHUB_ENV
-          git checkout "$LATEST_TAG"
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.18"
-
-      - name: Install GoReleaser manually
-        run: |
-          curl -sSfL https://github.com/goreleaser/goreleaser/releases/download/v2.9.0/goreleaser_Linux_x86_64.tar.gz | tar -xz
-          sudo mv goreleaser /usr/local/bin/
-
-      - name: Run GoReleaser using latest semantic-release tag
-        run: |
-          echo "Using tag: $RELEASE_TAG"
-          goreleaser release --clean
+      - run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
