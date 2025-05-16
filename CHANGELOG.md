@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/MA-DOS/SlurmExporter/compare/v1.2.0...v1.2.1) (2025-05-16)
+
+
+### Bug Fixes
+
+* parentjob fetching is not blocking server startup anymore ([fe99eaa](https://github.com/MA-DOS/SlurmExporter/commit/fe99eaa30f9dd922a7eb163aa5e36d674356d619))
+
 # [1.2.0](https://github.com/MA-DOS/SlurmExporter/compare/v1.1.0...v1.2.0) (2025-05-16)
 
 
