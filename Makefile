@@ -1,5 +1,5 @@
 # Variables
-APP_NAME = slurm_exporter
+APP_NAME = slurm-exporter
 SRC_DIR = .
 BUILD_DIR = ./bin
 GO_FILES = $(wildcard $(SRC_DIR)/*.go)
