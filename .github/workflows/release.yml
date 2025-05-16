@@ -44,8 +44,10 @@ jobs:
           go-version: "1.18"
 
       - name: Run GoReleaser using that tag
-        run: |
-          echo "Using tag: $RELEASE_TAG"
-          goreleaser release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+        args: release --clean
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
