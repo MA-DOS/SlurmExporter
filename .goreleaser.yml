@@ -21,11 +21,22 @@ archives:
       - README.md
       - config.yml
       - bin/**
+    wrap_in_directory: true
 
 release:
   github:
     owner: "MA-DOS"
     name: "SlurmExporter"
+    draft: false
+    prerelease: false
+
+artifacts:
+  - name: slurm_exporter
+    path: dist/*
+    type: archive
+
+checksum:
+  name_template: "checksums.txt"
 
 git:
   tag_sort: semver
