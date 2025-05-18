@@ -14,8 +14,6 @@ import (
  */
 
 func NewSlurmJobCollector() *SlurmJobCollector {
-	parentJob := getData.ParseSlurmParentJob(getData.GetSlurmParentJob())
-
 	// Define a consistent set of labels for all metrics
 	commonLabels := []string{
 		"partition", "job_name", "user", "node",
@@ -85,7 +83,7 @@ func NewSlurmJobCollector() *SlurmJobCollector {
 		JobPID: prometheus.NewDesc("slurm_job_pid",
 			"Job PID",
 			commonLabels, nil),
-		ParentJobID: parentJob,
+		// ParentJobID: parentJob,
 	}
 }
 
@@ -108,8 +106,8 @@ type SlurmJobCollector struct {
 	ConsumedEnergy *prometheus.Desc
 	MaxDiskRead    *prometheus.Desc
 	MaxDiskWrite   *prometheus.Desc
-	ParentJobID    int
-	JobPID         *prometheus.Desc
+	// ParentJobID    int
+	JobPID *prometheus.Desc
 }
 
 func (cc *SlurmJobCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -135,7 +133,8 @@ func (cc *SlurmJobCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (cc *SlurmJobCollector) Collect(ch chan<- prometheus.Metric) {
-	jobsMetrics := getData.SlurmJobsGetMetrics(cc.ParentJobID)
+	parentJob := getData.GetParentJob()
+	jobsMetrics := getData.SlurmJobsGetMetrics(parentJob)
 
 	// Collect the available labels.
 	for _, jm := range *jobsMetrics {

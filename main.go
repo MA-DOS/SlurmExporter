@@ -11,11 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func init() {
-	// Initialize Prometheus Exporter.
-	prometheus.MustRegister(log2prometheus.NewSlurmJobCollector())
-}
-
 var listenAddress = flag.String(
 	"listen-address",
 	":8082",
@@ -25,8 +20,19 @@ var listenAddress = flag.String(
 func main() {
 	flag.Parse()
 
+	// Create a channel to signal when the parent job is found
+	done := make(chan bool)
+
 	// Start the parent job watcher in the background
-	getData.StartParentJobWatcher()
+	getData.ObserveSlurmJobs(done)
+
+	// Wait for the parent job to be found
+	collector := log2prometheus.NewSlurmJobCollector()
+
+	<-done
+	logrus.Info("Initialized sbatch step. Starting HTTP server.")
+
+	prometheus.MustRegister(collector)
 
 	// Start the HTTP server
 	logrus.Infof("Starting Slurm Exporter on port %s", *listenAddress)

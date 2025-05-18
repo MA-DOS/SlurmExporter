@@ -181,7 +181,7 @@ func ParseSlurmSacctMetrics(input []byte) map[any]interface{} {
 
 // Helpers for getting Slurm Parent Jobs and Parsing their PIDs.
 func GetSlurmParentJob() []byte {
-	cmd := exec.Command("squeue", "--noheader", "--format=%A")
+	cmd := exec.Command("squeue", "--noheader", "--format=%A,%o")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		logrus.Error("Error creating stdout pipe: ", err)
@@ -198,9 +198,18 @@ func GetSlurmParentJob() []byte {
 
 func ParseSlurmParentJob(input []byte) int {
 	lines := strings.Split(strings.TrimSpace(string(input)), "\n")
-	if len(lines) > 0 {
-		jobID, _ := strconv.Atoi(lines[0])
-		return jobID
+	for _, line := range lines {
+		parts := strings.Split(line, ",")
+		if len(parts) == 2 {
+			parentJobID, err := strconv.Atoi(parts[0])
+			command := parts[1]
+			// Check if the conversion succeeded and the command contains "run.sbatch"
+			if err == nil && strings.Contains(command, "run.sbatch") {
+				return parentJobID
+			}
+		} else {
+			logrus.Warn("Did not find parent job ID.")
+		}
 	}
 	return 0
 }
@@ -267,6 +276,12 @@ func RemoveOldJobsFromControlOutput(controlMap map[any]interface{}) map[any]inte
 
 func RemoveCompletedJobsFromControlOuptut(filteredControlMap map[any]interface{}) map[any]interface{} {
 	duplicateFreeMap := make(map[any]interface{})
+
+	// Ensure completedJobs is initialized
+	if completedJobs == nil {
+		logrus.Warn("completedJobs map is nil. Initializing it.")
+		completedJobs = make(map[int]bool)
+	}
 
 	for jobID, metrics := range filteredControlMap {
 		if jobMetrics, ok := metrics.(map[any]interface{}); ok {

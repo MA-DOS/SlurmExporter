@@ -17,33 +17,44 @@ var (
 	noWorkflowRunning bool
 	workflowRunning   bool
 	parentJob         int
-	parentJobLock     sync.Mutex
+	parentJobMutex    sync.RWMutex
 	completedJobs     map[int]bool
 )
 
-// StartParentJobWatcher starts a goroutine to continuously update the parentJob variable
-func StartParentJobWatcher() {
-	go func() {
-		for {
-			jobID := ParseSlurmParentJob(GetSlurmParentJob())
-			if jobID != 0 {
-				parentJobLock.Lock()
-				parentJob = jobID
-				parentJobLock.Unlock()
-				logrus.Infof("Parent jobID found: %d", jobID)
-				return
-			}
-			logrus.Info("Waiting to find Slurm Job...")
-			time.Sleep(5 * time.Second) // Retry every 5 seconds
-		}
-	}()
+func init() {
+	completedJobs = make(map[int]bool)
 }
 
-// GetParentJob safely retrieves the current value of parentJob
 func GetParentJob() int {
-	parentJobLock.Lock()
-	defer parentJobLock.Unlock()
+	parentJobMutex.RLock()
+	defer parentJobMutex.RUnlock()
 	return parentJob
+}
+
+func SetParentJob(jobID int) {
+	parentJobMutex.Lock()
+	defer parentJobMutex.Unlock()
+	parentJob = jobID
+}
+
+// StartParentJobWatcher starts a goroutine to continuously update the parentJob variable
+func ObserveSlurmJobs(done chan bool) {
+	go func() {
+		var lastParentJob int // Keep track of the last parent job ID
+		for {
+			jobID := ParseSlurmParentJob(GetSlurmParentJob())
+			if jobID != 0 && jobID != lastParentJob {
+				SetParentJob(jobID) // Use the setter to update parentJob
+				lastParentJob = jobID
+				logrus.Infof("Updated sbatch parent job. New ID: %d. Metrics are served.", jobID)
+				done <- true // Signal that the parent job has been found
+				return       // Exit the loop once the parent job is found
+			} else if jobID == 0 {
+				logrus.Warn("No sbatch step found. Please ensure a workflow is running.")
+			}
+			time.Sleep(5 * time.Second) // Wait before scanning again
+		}
+	}()
 }
 
 // This struct is used to store the output of the slurm cli interface
@@ -135,7 +146,8 @@ func SlurmJobsGetMetrics(parentJob int) *[]SlurmJob {
 
 func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{}) *[]SlurmJob {
 	var slurmJobs []SlurmJob
-	if metrics == nil {
+	if metrics == nil || len(metrics) == 0 {
+		logrus.Warn("Metrics map is nil or empty. No jobs to process.")
 		if !noWorkflowRunning {
 			logrus.Warn("No metrics found. Workflow Run might not be active. Please verify the workflow status.")
 			noWorkflowRunning = true
@@ -148,7 +160,7 @@ func (sjs *SlurmJob) NewSlurmJobStruct(parentJob int, metrics map[any]interface{
 	// Iterate over each jobID in the map and init the struct with the nested map metrics.
 	for jobID := range metrics {
 		if !workflowRunning {
-			logrus.Info("Metrics were found and sent to Prometheus!")
+			logrus.Info("Pushing metrics to Prometheus!")
 			workflowRunning = true
 		}
 
